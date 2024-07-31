@@ -43,7 +43,7 @@ function create() {
 
         <p id="warning">This plugin requires you to enter a filename to export/import all text resources to/from.
         Please enter a filename (only the name). The file and path will be picked in the following dialog.<br />
-        <br />The CSV format is: ArtboardId;ArtboardName;TextId;Text<br />
+        <br />The CSV format is: ArtboardId,ArtboardName,TextId,Text<br />
         <br />Contact and help: axelwolters@hotmail.com</p>
         `;
 
@@ -76,17 +76,20 @@ function create() {
             // Add UTF-8 BOM
             fileContent.push("\ufeff");
             // Add CSV Header
-            fileContent.push("ArtboardId;ArtboardName;TextId;Text" + "\r\n");
+            fileContent.push("ArtboardId,ArtboardName,TextId,Text" + "\r\n");
 
             // console.log(root);
             root.children.forEach(node => {
                 if (node instanceof Artboard) {
-                    // Expand artboard
-                    let artboard = node;
-                    console.log("Found artboard: " + artboard.name);
-                    artboard.children.forEach(child => {
-                        extractText(fileContent, artboard.name, artboard.guid, child);
-                    });
+                    if(node.markedForExport) 
+                    {
+                        // Expand artboard
+                        let artboard = node;
+                        console.log("Found artboard: " + artboard.name);
+                        artboard.children.forEach(child => {
+                            extractText(fileContent, artboard.name, artboard.guid, child);
+                        });
+                    }
                 } else if (node instanceof Text) {
                     extractText(fileContent, "No Artboard", "00000000-0000-0000-0000-000000000000", node);
                 }
@@ -197,7 +200,7 @@ async function writeToFile(fileName, content) {
 }
 
 function parseFileData(csvText) {
-    const separator = ';';
+    const separator = ',';
     const newline = '\r';
     var grid = parseCsv(csvText, separator, newline);
     return grid;
@@ -232,7 +235,7 @@ function replaceText(grid, artboardName, artboardId, node)
         return;
     } else if (node instanceof Text) {
         let text = node.text;
-        console.log("Found Text: " + text + " with ID: " + node.guid);
+        // console.log("Found Text: " + text + " with ID: " + node.guid);
         processEntry(grid, artboardId, artboardName, node);
     } else if (node instanceof Group) {
         console.log("Expanding Group: " + node.name + ":");
@@ -255,7 +258,7 @@ function extractText(ct, artboardName, artboardId, node)
         return;
     } else if (node instanceof Text) {
         let text = node.text;
-        console.log("## Found Text: '" + text + "' with ID: {" + node.guid + "}");
+        // console.log("## Found Text: '" + text + "' with ID: {" + node.guid + "}");
         writeLine(ct, artboardId, artboardName, node.guid, text);
     } else if (node instanceof Group) {
         console.log("## Expanding Group: " + node.name + ":");
@@ -279,6 +282,7 @@ function processEntry(grid, artboardId, artboardName, node) {
     for (var i=0; i<len; i++) {
         const item = grid[i];
         const gId = item[2];
+        // console.log("Checking grid item: " + item[2]);
         if (node.guid === gId) {
             console.log("Found grid item: " + item[2]);
             const newText = item[3];
@@ -312,7 +316,7 @@ function writeLine(ct, ai, an, ti, t) {
     let filteredText = t.split('')
         .map(function(e){
             var n = e.charCodeAt(0);
-            if (n <= 31 || n >= 256) {
+            if (n <= 31) {
                 return '{{' + n + '}}';
             }
             else {
@@ -320,7 +324,7 @@ function writeLine(ct, ai, an, ti, t) {
             }
         }).join('');
 
-    let line = ai + ";" + an + ";" + ti + ";" + filteredText;
+    let line ='"' + ai + '","' + an + '","' + ti + '","' + filteredText + '"';
     console.log("## Written: '" + filteredText + "'\r\n");
     ct.push(line + "\r\n");
 }
